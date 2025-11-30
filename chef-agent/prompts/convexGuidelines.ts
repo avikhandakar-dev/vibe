@@ -606,13 +606,16 @@ export const sendMessage = mutation({
 });
 \`\`\`
 
-Path: \`src/App.tsx\`
-\`\`\`ts
+Path: \`src/components/Chat.tsx\`
+\`\`\`tsx
 import { FormEvent, useRef, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
-import { api } from "../convex/_generated/api";
+import { api } from "../../convex/_generated/api";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-export default function App() {
+export function Chat() {
   const messages = useQuery(api.messages.list) || [];
 
   const [newMessageText, setNewMessageText] = useState("");
@@ -657,53 +660,58 @@ export default function App() {
   }
 
   return (
-    <main>
-      <h1>Convex Chat</h1>
-      <p className="badge">
-        <span>{name}</span>
-      </p>
-      <ul>
-        {messages.map((message) => (
-          <li key={message._id}>
-            <span>{message.author}:</span>
-            {message.format === "image" ? (
-              <Image message={message} />
-            ) : (
-              <span>{message.body}</span>
-            )}
-            <span>{new Date(message._creationTime).toLocaleTimeString()}</span>
-          </li>
-        ))}
-      </ul>
-      <form onSubmit={handleSendMessage}>
-        <input
-          value={newMessageText}
-          onChange={(event) => setNewMessageText(event.target.value)}
-          placeholder="Write a message…"
-        />
-        <input type="submit" value="Send" disabled={!newMessageText} />
-      </form>
-      <form onSubmit={handleSendImage}>
-        <input
-          type="file"
-          accept="image/*"
-          ref={imageInput}
-          onChange={(event) => setSelectedImage(event.target.files![0])}
-          className="ms-2 btn btn-primary"
-          disabled={selectedImage !== null}
-        />
-        <input
-          type="submit"
-          value="Send Image"
-          disabled={selectedImage === null}
-        />
-      </form>
-    </main>
+    <div className="container mx-auto p-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>Convex Chat</CardTitle>
+          <p className="text-muted-foreground">{name}</p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <ul className="space-y-2">
+            {messages.map((message) => (
+              <li key={message._id} className="flex gap-2 items-center">
+                <span className="font-medium">{message.author}:</span>
+                {message.format === "image" ? (
+                  <ChatImage message={message} />
+                ) : (
+                  <span>{message.body}</span>
+                )}
+                <span className="text-muted-foreground text-sm">
+                  {new Date(message._creationTime).toLocaleTimeString()}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <form onSubmit={handleSendMessage} className="flex gap-2">
+            <Input
+              value={newMessageText}
+              onChange={(event) => setNewMessageText(event.target.value)}
+              placeholder="Write a message…"
+            />
+            <Button type="submit" disabled={!newMessageText}>
+              Send
+            </Button>
+          </form>
+          <form onSubmit={handleSendImage} className="flex gap-2">
+            <Input
+              type="file"
+              accept="image/*"
+              ref={imageInput}
+              onChange={(event) => setSelectedImage(event.target.files![0])}
+              disabled={selectedImage !== null}
+            />
+            <Button type="submit" disabled={selectedImage === null}>
+              Send Image
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
-function Image({ message }: { message: { url: string } }) {
-  return <img src={message.url} height="300px" width="auto" />;
+function ChatImage({ message }: { message: { url: string } }) {
+  return <img src={message.url} height="300px" width="auto" alt="Chat image" className="rounded" />;
 }
 \`\`\`
 

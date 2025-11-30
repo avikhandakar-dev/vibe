@@ -16,10 +16,13 @@ import React, {
 } from 'react';
 import { useSearchParams } from '@remix-run/react';
 import { classNames } from '~/utils/classNames';
-import { ConvexConnection } from '~/components/convex/ConvexConnection';
+import { AutoConvexConnection } from '~/components/convex/AutoConvexConnection';
 import { PROMPT_COOKIE_KEY, type ModelSelection } from '~/utils/constants';
 import { ModelSelector } from './ModelSelector';
 import { TeamSelector } from '~/components/convex/TeamSelector';
+
+// Set to true to use auto-provisioning (no team selector needed)
+const USE_AUTO_PROVISIONING = true;
 import { ArrowRightIcon, ExclamationTriangleIcon, MagnifyingGlassIcon, StopIcon } from '@radix-ui/react-icons';
 import { SquaresPlusIcon } from '@heroicons/react/24/outline';
 import { Tooltip } from '@ui/Tooltip';
@@ -152,7 +155,7 @@ export const MessageInput = memo(function MessageInput({
 
   const handleKeyDown: KeyboardEventHandler<HTMLTextAreaElement> = useCallback(
     (event) => {
-      if (event.key === 'Enter' && selectedTeamSlug) {
+      if (event.key === 'Enter' && (USE_AUTO_PROVISIONING || selectedTeamSlug)) {
         if (event.shiftKey) {
           return;
         }
@@ -277,10 +280,10 @@ export const MessageInput = memo(function MessageInput({
             'flex items-center gap-2 border rounded-b-xl border-t-0 bg-background-secondary/80 p-1.5 text-sm flex-wrap',
           )}
         >
-          {chefAuthState.kind === 'fullyLoggedIn' && (
+          {(USE_AUTO_PROVISIONING || chefAuthState.kind === 'fullyLoggedIn') && (
             <ModelSelector modelSelection={modelSelection} setModelSelection={setModelSelection} size="sm" />
           )}
-          {!chatStarted && sessionId && (
+          {!USE_AUTO_PROVISIONING && !chatStarted && sessionId && (
             <TeamSelector
               description="Your project will be created in this Convex team"
               selectedTeamSlug={selectedTeamSlug}
@@ -288,12 +291,12 @@ export const MessageInput = memo(function MessageInput({
               size="sm"
             />
           )}
-          {chatStarted && <ConvexConnection />}
+          {chatStarted && <AutoConvexConnection />}
           {input.length > 3 && input.length <= PROMPT_LENGTH_WARNING_THRESHOLD && <NewLineShortcut />}
           {input.length > PROMPT_LENGTH_WARNING_THRESHOLD && <CharacterWarning />}
           <div className="ml-auto flex items-center gap-1">
-            {chefAuthState.kind === 'unauthenticated' && <SignInButton />}
-            {chefAuthState.kind === 'fullyLoggedIn' && (
+            {!USE_AUTO_PROVISIONING && chefAuthState.kind === 'unauthenticated' && <SignInButton />}
+            {(USE_AUTO_PROVISIONING || chefAuthState.kind === 'fullyLoggedIn') && (
               <MenuComponent
                 buttonProps={{
                   variant: 'neutral',
@@ -341,25 +344,32 @@ export const MessageInput = memo(function MessageInput({
                 </MenuItemComponent>
               </MenuComponent>
             )}
-            {chefAuthState.kind === 'fullyLoggedIn' && (
+            {chefAuthState.kind === 'fullyLoggedIn' && !USE_AUTO_PROVISIONING && (
               <EnhancePromptButton
                 isEnhancing={isEnhancing}
                 disabled={!selectedTeamSlug || disabled || input.length === 0}
                 onClick={enhancePrompt}
               />
             )}
+            {USE_AUTO_PROVISIONING && (
+              <EnhancePromptButton
+                isEnhancing={isEnhancing}
+                disabled={disabled || input.length === 0}
+                onClick={enhancePrompt}
+              />
+            )}
             <Button
               disabled={
                 (!isStreaming && input.length === 0) ||
-                !selectedTeamSlug ||
-                chefAuthState.kind === 'loading' ||
+                (!USE_AUTO_PROVISIONING && !selectedTeamSlug) ||
+                (!USE_AUTO_PROVISIONING && chefAuthState.kind === 'loading') ||
                 sendMessageInProgress ||
                 disabled
               }
               tip={
-                chefAuthState.kind === 'unauthenticated'
+                !USE_AUTO_PROVISIONING && chefAuthState.kind === 'unauthenticated'
                   ? 'Please sign in to continue'
-                  : !selectedTeamSlug
+                  : !USE_AUTO_PROVISIONING && !selectedTeamSlug
                     ? 'Please select a team to continue'
                     : undefined
               }

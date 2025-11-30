@@ -89,7 +89,7 @@ export const deploy = wrapTraced(async function deploy(repoDir: string, backend:
 });
 
 export const runTypecheck = wrapTraced(async function runTypecheck(repoDir: string) {
-  const args = ['tsc', '--noEmit', '--project', 'tsconfig.app.json'];
+  const args = ['tsc', '--noEmit'];
   const { stdout, stderr } = await execFile('npx', args, { cwd: repoDir });
   return cleanConvexOutput(stdout + stderr);
 });

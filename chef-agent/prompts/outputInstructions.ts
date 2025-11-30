@@ -17,10 +17,10 @@ export function outputInstructions(options: SystemPromptOptions) {
 
         User: "Create a collaborative todo list app"
         Assistant: "Sure. I'll start by:
-        1. Update the Vite template to render the TODO app with dummy data.
+        1. Create a new React component to render the TODO list with shadcn/ui components.
         2. Create a 'todos' table in the Convex schema.
         3. Implement queries and mutations to add, edit, list, and delete todos.
-        4. Update the React app to use the Convex functions.
+        4. Connect the React components to the Convex functions.
 
         Let's start now.
 

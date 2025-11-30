@@ -58,7 +58,7 @@ export const PREWARM_PATHS = [
   `${WORK_DIR}/convex/schema.ts`,
   `${WORK_DIR}/src/App.tsx`,
   `${WORK_DIR}/src/index.css`,
-  `${WORK_DIR}/src/tailwind.config.js`,
+  `${WORK_DIR}/tailwind.config.js`,
 ];
 
 // A list of files that we block the LLM from modifying
@@ -66,8 +66,7 @@ export const EXCLUDED_FILE_PATHS = [
   'convex/auth.ts',
   'convex/http.ts',
   'src/main.tsx',
-  'src/SignInForm.tsx',
-  'src/SignOutButton.tsx',
+  'src/components/auth/SignInForm.tsx',
   'vite.config.ts',
   'package.json',
 ];

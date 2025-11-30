@@ -12,7 +12,7 @@ import { ConvexError, v } from "convex/values";
 import type { Infer } from "convex/values";
 import { isValidSession } from "./sessions";
 import type { Doc, Id } from "./_generated/dataModel";
-import { ensureEnvVar, startProvisionConvexProjectHelper } from "./convexProjects";
+import { ensureEnvVar, startProvisionConvexProjectHelper, autoProvisionProjectHelper } from "./convexProjects";
 import { internal } from "./_generated/api";
 import { assertIsConvexAdmin } from "./admin";
 
@@ -47,6 +47,34 @@ export const initializeChat = mutation({
       id,
       sessionId,
       projectInitParams,
+    });
+  },
+});
+
+/**
+ * Initialize a chat with auto-provisioning.
+ * This doesn't require the user to be logged into Convex.
+ * Projects are created under your team automatically.
+ */
+export const initializeChatAuto = mutation({
+  args: {
+    sessionId: v.id("sessions"),
+    id: v.string(),
+    externalUserId: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const { id, sessionId, externalUserId } = args;
+    let existing = await getChatByIdOrUrlIdEnsuringAccess(ctx, { id: args.id, sessionId: args.sessionId });
+
+    if (existing) {
+      return;
+    }
+
+    await createNewChatAuto(ctx, {
+      id,
+      sessionId,
+      externalUserId,
     });
   },
 });
@@ -771,6 +799,55 @@ export async function createNewChat(
     sessionId,
     chatId: id,
     projectInitParams,
+  });
+
+  return chatId;
+}
+
+/**
+ * Create a new chat with auto-provisioning.
+ * Projects are created under your team without requiring user login.
+ */
+export async function createNewChatAuto(
+  ctx: MutationCtx,
+  args: {
+    id: string;
+    sessionId: Id<"sessions">;
+    externalUserId?: string;
+  },
+): Promise<Id<"chats">> {
+  const { id, sessionId, externalUserId } = args;
+  const existing = await getChatByIdOrUrlIdEnsuringAccess(ctx, { id, sessionId });
+
+  if (existing) {
+    throw new ConvexError({ code: "InvalidState", message: "Chat already exists" });
+  }
+
+  const session = await ctx.db.get(sessionId);
+  if (!session) {
+    throw new Error(`Invalid state -- session should exist: ${sessionId}`);
+  }
+
+  const chatId = await ctx.db.insert("chats", {
+    creatorId: sessionId,
+    initialId: id,
+    timestamp: new Date().toISOString(),
+    isDeleted: false,
+    lastSubchatIndex: 0,
+  });
+  await ctx.db.insert("chatMessagesStorageState", {
+    chatId,
+    storageId: null,
+    lastMessageRank: -1,
+    subchatIndex: 0,
+    partIndex: -1,
+  });
+
+  // Use auto-provisioning instead of OAuth flow
+  await autoProvisionProjectHelper(ctx, {
+    sessionId,
+    chatId: id,
+    externalUserId,
   });
 
   return chatId;

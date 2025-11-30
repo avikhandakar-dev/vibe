@@ -114,6 +114,23 @@ export const startSession = mutation({
   },
 });
 
+// Start session for anonymous users (auto-provisioning mode)
+export const startAnonymousSession = mutation({
+  args: {},
+  returns: v.id("sessions"),
+  handler: async (ctx) => {
+    // Create an anonymous member
+    const memberId = await ctx.db.insert("convexMembers", {
+      tokenIdentifier: `anonymous:${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      convexMemberId: undefined,
+    });
+    
+    return ctx.db.insert("sessions", {
+      memberId,
+    });
+  },
+});
+
 async function getOrCreateCurrentMember(ctx: MutationCtx) {
   const identity = await ctx.auth.getUserIdentity();
   if (!identity) {

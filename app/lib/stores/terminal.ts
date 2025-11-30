@@ -73,7 +73,7 @@ export class TerminalStore {
     }
 
     if (!workbenchStore.isDefaultPreviewRunning()) {
-      await this.#boltTerminal.executeCommand('vite --open');
+      await this.#boltTerminal.executeCommand('npm run dev');
     }
   }
 

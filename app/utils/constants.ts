@@ -3,7 +3,17 @@ import { WORK_DIR } from 'chef-agent/constants';
 export const PROMPT_COOKIE_KEY = 'cachedPrompt';
 
 export const IGNORED_PATHS = [`${WORK_DIR}/dist/`, `${WORK_DIR}/node_modules/`, `${WORK_DIR}/.env.local`];
-export const IGNORED_RELATIVE_PATHS = ['dist', 'node_modules', '.env.local'];
+export const IGNORED_RELATIVE_PATHS = [
+  'dist',
+  'node_modules',
+  '.env.local',
+  '.next',           // Next.js build output
+  '.turbo',          // Turbo cache
+  '.cache',          // Various caches
+  'coverage',        // Test coverage
+  '.git',            // Git directory
+  '*.log',           // Log files
+];
 
 export const DEFAULT_COLLAPSED_FOLDERS = new Set([
   `${WORK_DIR}/convex/_generated`,

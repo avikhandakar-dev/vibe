@@ -74,69 +74,91 @@ export const ChefAuthProvider = ({
       }
     }
 
+    const USE_AUTO_PROVISIONING_EFFECT = true;
     const isUnauthenticated = !isAuthenticated && !isConvexAuthLoading;
 
-    if (sessionId === undefined && isUnauthenticated) {
-      setSessionId(null);
-      return undefined;
-    }
+    // In auto-provisioning mode, don't clear session for unauthenticated users
+    if (!USE_AUTO_PROVISIONING_EFFECT) {
+      if (sessionId === undefined && isUnauthenticated) {
+        setSessionId(null);
+        return undefined;
+      }
 
-    if (sessionId !== null && isUnauthenticated) {
-      setSessionId(null);
-      return undefined;
+      if (sessionId !== null && isUnauthenticated) {
+        setSessionId(null);
+        return undefined;
+      }
     }
     let verifySessionTimeout: ReturnType<typeof setTimeout> | null = null;
 
     async function verifySession() {
+      const USE_AUTO_PROVISIONING = true;
+
+      // For anonymous users in auto-provisioning mode, skip WorkOS auth checks
       if (sessionIdFromLocalStorage) {
-        // Seems like auth might not automatically refresh its state, so call this to kick it
-        try {
-          // Call this to prove that WorkOS is set up
-          await getAccessToken({});
-          authRetries.current = 0;
-        } catch (_e) {
-          console.error('Unable to fetch access token from WorkOS');
-          if (authRetries.current < 3 && verifySessionTimeout === null) {
-            authRetries.current++;
-            verifySessionTimeout = setTimeout(() => {
-              void verifySession();
-            }, 1000);
+        // For authenticated users, verify with WorkOS
+        if (isAuthenticated) {
+          try {
+            await getAccessToken({});
+            authRetries.current = 0;
+          } catch (_e) {
+            console.error('Unable to fetch access token from WorkOS');
+            if (authRetries.current < 3 && verifySessionTimeout === null) {
+              authRetries.current++;
+              verifySessionTimeout = setTimeout(() => {
+                void verifySession();
+              }, 1000);
+            }
+            return;
           }
-          return;
-        }
-        if (!isAuthenticated) {
-          // Wait until auth is propagated to Convex before we try to verify the session
-          return;
-        }
-        let isValid: boolean = false;
-        try {
-          isValid = await convex.query(api.sessions.verifySession, {
-            sessionId: sessionIdFromLocalStorage as Id<'sessions'>,
-          });
-        } catch (error) {
-          console.error('Error verifying session', error);
-          toast.error('Unexpected error verifying credentials');
-          setSessionId(null);
-        }
-        if (isValid) {
-          const optIns = await fetchOptIns(convex);
-          if (optIns.kind === 'loaded' && optIns.optIns.length === 0) {
-            setSessionId(sessionIdFromLocalStorage as Id<'sessions'>);
+
+          let isValid: boolean = false;
+          try {
+            isValid = await convex.query(api.sessions.verifySession, {
+              sessionId: sessionIdFromLocalStorage as Id<'sessions'>,
+            });
+          } catch (error) {
+            console.error('Error verifying session', error);
+            toast.error('Unexpected error verifying credentials');
+            setSessionId(null);
+            return;
           }
-          if (!hasAlertedAboutOptIns.current && optIns.kind === 'loaded' && optIns.optIns.length > 0) {
-            toast.info('Please accept the Convex Terms of Service to continue');
-            hasAlertedAboutOptIns.current = true;
+          if (isValid) {
+            const optIns = await fetchOptIns(convex);
+            if (optIns.kind === 'loaded' && optIns.optIns.length === 0) {
+              setSessionId(sessionIdFromLocalStorage as Id<'sessions'>);
+              return;
+            }
+            if (!hasAlertedAboutOptIns.current && optIns.kind === 'loaded' && optIns.optIns.length > 0) {
+              toast.info('Please accept the Convex Terms of Service to continue');
+              hasAlertedAboutOptIns.current = true;
+            }
+            if (hasAlertedAboutOptIns.current && optIns.kind === 'error') {
+              toast.error('Unexpected error setting up your account.');
+            }
+            return;
+          } else {
+            setSessionId(null);
           }
-          if (hasAlertedAboutOptIns.current && optIns.kind === 'error') {
-            toast.error('Unexpected error setting up your account.');
+        } else if (USE_AUTO_PROVISIONING) {
+          // For anonymous users, just verify the session exists
+          try {
+            const isValid = await convex.query(api.sessions.verifySession, {
+              sessionId: sessionIdFromLocalStorage as Id<'sessions'>,
+            });
+            if (isValid) {
+              setSessionId(sessionIdFromLocalStorage as Id<'sessions'>);
+              return;
+            }
+          } catch (error) {
+            console.error('Error verifying anonymous session', error);
           }
-        } else {
-          // Clear it, the next loop around we'll try creating a new session
-          // if we're authenticated.
+          // Session invalid, clear it and create new one below
           setSessionId(null);
         }
       }
 
+      // Create new session
       if (isAuthenticated) {
         try {
           const sessionId = await convex.mutation(api.sessions.startSession);
@@ -145,8 +167,16 @@ export const ChefAuthProvider = ({
           console.error('Error creating session', error);
           setSessionId(null);
         }
+      } else if (USE_AUTO_PROVISIONING) {
+        // Create anonymous session for auto-provisioning mode
+        try {
+          const sessionId = await convex.mutation(api.sessions.startAnonymousSession);
+          setSessionId(sessionId);
+        } catch (error) {
+          console.error('Error creating anonymous session', error);
+          setSessionId(null);
+        }
       }
-      return;
     }
 
     void verifySession();
@@ -165,8 +195,9 @@ export const ChefAuthProvider = ({
     getAccessToken,
   ]);
 
-  const isLoading = sessionId === undefined || isConvexAuthLoading;
-  const isUnauthenticated = sessionId === null || !isAuthenticated;
+  const USE_AUTO_PROVISIONING_STATE = true;
+  const isLoading = sessionId === undefined || (!USE_AUTO_PROVISIONING_STATE && isConvexAuthLoading);
+  const isUnauthenticated = sessionId === null || (!USE_AUTO_PROVISIONING_STATE && !isAuthenticated);
   const state: ChefAuthState = isLoading
     ? { kind: 'loading' }
     : isUnauthenticated

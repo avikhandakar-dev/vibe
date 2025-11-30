@@ -5,7 +5,7 @@ export function exampleDataInstructions(_options: SystemPromptOptions) {
   return stripIndents`
   <example_data_instructions>
     If the user asks you to make an app that requires data, use some example data to populate the
-    UI but ONLY include it the Vite app.
+    UI but ONLY include it in the React app.
 
     IMPORTANT: Do NOT write example data to the database.
     IMPORTANT: You MUST also tell the user that the data is example data and not authoritative.

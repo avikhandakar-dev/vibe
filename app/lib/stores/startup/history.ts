@@ -222,16 +222,15 @@ async function chatSyncWorker(args: {
     }
     let response;
     let error: Error | null = null;
-    const formData = new FormData();
-    if (messageBlob !== undefined) {
-      formData.append('messages', new Blob([messageBlob]));
-    }
-    if (snapshotBlob !== undefined) {
-      formData.append('snapshot', new Blob([snapshotBlob]));
-    }
-    if (firstMessage !== undefined) {
-      formData.append('firstMessage', firstMessage);
-    }
+    
+    // Convex has a 20MB limit for HTTP actions
+    const MAX_PAYLOAD_SIZE = 19 * 1024 * 1024; // 19MB to leave some buffer
+    const messageSize = messageBlob?.length ?? 0;
+    const snapshotSize = snapshotBlob?.length ?? 0;
+    const totalSize = messageSize + snapshotSize;
+    
+    logger.info(`Backup sizes - Messages: ${(messageSize / 1024).toFixed(1)}KB, Snapshot: ${(snapshotSize / 1024).toFixed(1)}KB, Total: ${(totalSize / 1024).toFixed(1)}KB`);
+    
     if (currentState.subchatIndex !== subchatIndexStore.get()) {
       chatSyncState.set({
         ...currentState,
@@ -239,13 +238,67 @@ async function chatSyncWorker(args: {
       });
       continue;
     }
-    try {
-      response = await fetch(url, {
-        method: 'POST',
-        body: formData,
-      });
-    } catch (e) {
-      error = e as Error;
+
+    // If total size exceeds limit, send messages and snapshot separately
+    if (totalSize > MAX_PAYLOAD_SIZE && messageBlob !== undefined && snapshotBlob !== undefined) {
+      logger.info(`Payload too large (${(totalSize / 1024 / 1024).toFixed(2)}MB), splitting into separate requests`);
+      
+      // First, send messages only
+      const messagesFormData = new FormData();
+      messagesFormData.append('messages', new Blob([messageBlob as BlobPart]));
+      if (firstMessage !== undefined) {
+        messagesFormData.append('firstMessage', firstMessage);
+      }
+      try {
+        response = await fetch(url, {
+          method: 'POST',
+          body: messagesFormData,
+        });
+        if (!response.ok) {
+          error = new Error(`Failed to save messages: ${response.status}`);
+        }
+      } catch (e) {
+        error = e as Error;
+      }
+      
+      // Then, send snapshot only (if messages succeeded)
+      if (error === null && snapshotSize <= MAX_PAYLOAD_SIZE) {
+        const snapshotFormData = new FormData();
+        snapshotFormData.append('snapshot', new Blob([snapshotBlob as BlobPart]));
+        try {
+          const snapshotResponse = await fetch(url, {
+            method: 'POST',
+            body: snapshotFormData,
+          });
+          if (!snapshotResponse.ok) {
+            logger.warn(`Failed to save snapshot: ${snapshotResponse.status}, but messages were saved`);
+          }
+        } catch (e) {
+          logger.warn('Failed to save snapshot, but messages were saved', e);
+        }
+      } else if (snapshotSize > MAX_PAYLOAD_SIZE) {
+        logger.warn(`Snapshot too large (${(snapshotSize / 1024 / 1024).toFixed(2)}MB), skipping snapshot backup`);
+      }
+    } else {
+      // Normal case: send everything together
+      const formData = new FormData();
+      if (messageBlob !== undefined) {
+        formData.append('messages', new Blob([messageBlob as BlobPart]));
+      }
+      if (snapshotBlob !== undefined) {
+        formData.append('snapshot', new Blob([snapshotBlob as BlobPart]));
+      }
+      if (firstMessage !== undefined) {
+        formData.append('firstMessage', firstMessage);
+      }
+      try {
+        response = await fetch(url, {
+          method: 'POST',
+          body: formData,
+        });
+      } catch (e) {
+        error = e as Error;
+      }
     }
     if (error !== null || (response !== undefined && !response.ok)) {
       const errorText = response !== undefined ? await response.text() : (error?.message ?? 'Unknown error');

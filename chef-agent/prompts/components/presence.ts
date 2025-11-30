@@ -98,24 +98,23 @@ export const disconnect = mutation({
 
 A \`Presence\` React component can be instantiated from your client code like this:
 
-\`src/App.tsx\`
+\`src/components/PresenceIndicator.tsx\`
 
 \`\`\`tsx
-import { api } from "../convex/_generated/api";
+import { useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
 import usePresence from "@convex-dev/presence/react";
 import FacePile from "@convex-dev/presence/facepile";
 
-export default function App(): React.ReactElement {
+export default function PresenceIndicator() {
   const userId = useQuery(api.presence.getUserId);
   
-  return (
-    <main>
-      {userId && <PresenceIndicator userId={userId} />}
-    </main>
-  );
+  if (!userId) return null;
+  
+  return <PresenceDisplay userId={userId} />;
 }
 
-function PresenceIndicator({ userId }: { userId: string }) {
+function PresenceDisplay({ userId }: { userId: string }) {
   const presenceState = usePresence(api.presence, "my-chat-room", userId);
   return <FacePile presenceState={presenceState ?? []} />;
 }

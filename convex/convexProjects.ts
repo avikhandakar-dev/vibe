@@ -427,3 +427,175 @@ export function ensureEnvVar(name: string) {
   }
   return process.env[name];
 }
+
+// ============================================================================
+// AUTO-PROVISIONING MODE
+// This allows provisioning Convex projects without user login.
+// Projects are created under YOUR Convex team using service credentials.
+// ============================================================================
+
+/**
+ * Auto-provision a Convex project for a user without requiring Convex login.
+ * This uses your service credentials to create projects under your team.
+ * 
+ * Required environment variables:
+ * - CONVEX_SERVICE_TOKEN: Your Convex access token
+ * - CONVEX_TEAM_SLUG: Your team slug where projects will be created
+ * - BIG_BRAIN_HOST: Convex API host
+ */
+export const autoProvisionProject = mutation({
+  args: {
+    sessionId: v.id("sessions"),
+    chatId: v.string(),
+    // Optional: your own user ID from your auth system
+    externalUserId: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const chat = await getChatByIdOrUrlIdEnsuringAccess(ctx, { id: args.chatId, sessionId: args.sessionId });
+    if (!chat) {
+      throw new ConvexError({ code: "NotAuthorized", message: "Chat not found" });
+    }
+
+    // Check if already connected
+    if (chat.convexProject?.kind === "connected") {
+      return { status: "already_connected" };
+    }
+
+    // Start auto-provisioning
+    await ctx.scheduler.runAfter(0, internal.convexProjects.doAutoProvision, {
+      sessionId: args.sessionId,
+      chatId: args.chatId,
+      externalUserId: args.externalUserId,
+    });
+
+    const jobId = await ctx.scheduler.runAfter(CHECK_CONNECTION_DEADLINE_MS, internal.convexProjects.checkConnection, {
+      sessionId: args.sessionId,
+      chatId: args.chatId,
+    });
+
+    await ctx.db.patch(chat._id, { convexProject: { kind: "connecting", checkConnectionJobId: jobId } });
+    return { status: "provisioning" };
+  },
+});
+
+export const doAutoProvision = internalAction({
+  args: {
+    sessionId: v.id("sessions"),
+    chatId: v.string(),
+    externalUserId: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const bigBrainHost = ensureEnvVar("BIG_BRAIN_HOST");
+    const serviceToken = ensureEnvVar("CONVEX_SERVICE_TOKEN");
+    const teamSlug = ensureEnvVar("CONVEX_TEAM_SLUG");
+
+    // Get project name from chat or generate one
+    let projectName: string | null = null;
+    let timeElapsed = 0;
+    while (timeElapsed < TOTAL_WAIT_TIME_MS) {
+      projectName = await ctx.runQuery(internal.convexProjects.getProjectName, {
+        sessionId: args.sessionId,
+        chatId: args.chatId,
+      });
+      if (projectName) {
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, WAIT_TIME_MS));
+      timeElapsed += WAIT_TIME_MS;
+    }
+
+    // Generate unique project name
+    const timestamp = Date.now();
+    const userPrefix = args.externalUserId ? `u${args.externalUserId.slice(0, 8)}` : "auto";
+    projectName = projectName 
+      ? `${projectName.slice(0, 30)}-${userPrefix}-${timestamp}`
+      : `Project-${userPrefix}-${timestamp}`;
+
+    try {
+      // Create project under your team
+      const createResponse = await fetch(`${bigBrainHost}/api/create_project`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${serviceToken}`,
+        },
+        body: JSON.stringify({
+          team: teamSlug,
+          projectName,
+          deploymentType: "dev",
+        }),
+      });
+
+      if (!createResponse.ok) {
+        const errorText = await createResponse.text();
+        console.error("Failed to auto-provision project:", errorText);
+        await ctx.runMutation(internal.convexProjects.recordFailedConvexProjectConnection, {
+          sessionId: args.sessionId,
+          chatId: args.chatId,
+          errorMessage: "Failed to provision project. Please try again.",
+        });
+        return;
+      }
+
+      const projectData = await createResponse.json() as {
+        projectSlug: string;
+        projectId: number;
+        teamSlug: string;
+        deploymentName: string;
+        prodUrl: string;
+        adminKey: string;
+      };
+
+      // Record the credentials
+      await ctx.runMutation(internal.convexProjects.recordProvisionedConvexProjectCredentials, {
+        sessionId: args.sessionId,
+        chatId: args.chatId,
+        projectSlug: projectData.projectSlug,
+        teamSlug: projectData.teamSlug,
+        projectDeployKey: projectData.adminKey,
+        deploymentUrl: projectData.prodUrl,
+        deploymentName: projectData.deploymentName,
+      });
+
+    } catch (error) {
+      console.error("Error in auto-provision:", error);
+      await ctx.runMutation(internal.convexProjects.recordFailedConvexProjectConnection, {
+        sessionId: args.sessionId,
+        chatId: args.chatId,
+        errorMessage: "Unexpected error during provisioning.",
+      });
+    }
+  },
+});
+
+/**
+ * Helper function to start auto-provisioning from within a mutation.
+ * This is called from createNewChatAuto in messages.ts.
+ */
+export async function autoProvisionProjectHelper(
+  ctx: MutationCtx,
+  args: {
+    sessionId: Id<"sessions">;
+    chatId: string;
+    externalUserId?: string;
+  },
+): Promise<void> {
+  const chat = await getChatByIdOrUrlIdEnsuringAccess(ctx, { id: args.chatId, sessionId: args.sessionId });
+  if (!chat) {
+    throw new ConvexError({ code: "NotAuthorized", message: "Chat not found" });
+  }
+
+  // Start auto-provisioning
+  await ctx.scheduler.runAfter(0, internal.convexProjects.doAutoProvision, {
+    sessionId: args.sessionId,
+    chatId: args.chatId,
+    externalUserId: args.externalUserId,
+  });
+
+  const jobId = await ctx.scheduler.runAfter(CHECK_CONNECTION_DEADLINE_MS, internal.convexProjects.checkConnection, {
+    sessionId: args.sessionId,
+    chatId: args.chatId,
+  });
+
+  await ctx.db.patch(chat._id, { convexProject: { kind: "connecting", checkConnectionJobId: jobId } });
+}

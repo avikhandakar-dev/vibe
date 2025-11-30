@@ -283,14 +283,16 @@ export const Chat = memo(
       api: '/api/chat',
       sendExtraMessageFields: true,
       experimental_prepareRequestBody: ({ messages }) => {
+        const USE_AUTO_PROVISIONING = true;
         const chatInitialId = initialIdStore.get();
-        const deploymentName = convexProjectStore.get()?.deploymentName;
-        const teamSlug = selectedTeamSlugStore.get();
-        const token = getConvexAuthToken(convex);
+        const convexProject = convexProjectStore.get();
+        const deploymentName = convexProject?.deploymentName;
+        const teamSlug = selectedTeamSlugStore.get() || convexProject?.teamSlug;
+        const token = getConvexAuthToken(convex) || convexProject?.token;
         if (!token) {
           throw new Error('No token');
         }
-        if (!teamSlug) {
+        if (!teamSlug && !USE_AUTO_PROVISIONING) {
           throw new Error('No team slug');
         }
         let modelProvider: ProviderType;

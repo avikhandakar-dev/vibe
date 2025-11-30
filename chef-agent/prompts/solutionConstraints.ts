@@ -66,8 +66,17 @@ export function solutionConstraints(options: SystemPromptOptions) {
 
         Then, you can use the \`loggedInUser\` query in your React component like this:
 
-        \`\`\`tsx "src/App.tsx"
-        const user = useQuery(api.auth.loggedInUser);
+        \`\`\`tsx "src/components/UserProfile.tsx"
+        import { useQuery } from "convex/react";
+        import { api } from "../../convex/_generated/api";
+
+        export function UserProfile() {
+          const user = useQuery(api.auth.loggedInUser);
+          
+          if (!user) return null;
+          
+          return <div>Welcome, {user.name || user.email}</div>;
+        }
         \`\`\`
 
         The "users" table within 'authTables' has a schema that looks like:
@@ -87,56 +96,69 @@ export function solutionConstraints(options: SystemPromptOptions) {
       </auth_server_guidelines>
 
       <client_guidelines>
-        Here is an example of using Convex from a React app:
-        \`\`\`tsx
-        import React, { useState } from "react";
+        Here is an example of using Convex from a Vite + React app with shadcn/ui:
+        \`\`\`tsx "src/components/Chat.tsx"
+        import { useState } from "react";
         import { useMutation, useQuery } from "convex/react";
-        import { api } from "../convex/_generated/api";
+        import { api } from "../../convex/_generated/api";
+        import { Button } from "@/components/ui/button";
+        import { Input } from "@/components/ui/input";
+        import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-        export default function App() {
+        export function Chat() {
           const messages = useQuery(api.messages.list) || [];
 
           const [newMessageText, setNewMessageText] = useState("");
           const sendMessage = useMutation(api.messages.send);
 
           const [name] = useState(() => "User " + Math.floor(Math.random() * 10000));
-          async function handleSendMessage(event) {
+          
+          async function handleSendMessage(event: React.FormEvent) {
             event.preventDefault();
             await sendMessage({ body: newMessageText, author: name });
             setNewMessageText("");
           }
+          
           return (
-            <main>
-              <h1>Convex Chat</h1>
-              <p className="badge">
-                <span>{name}</span>
-              </p>
-              <ul>
-                {messages.map((message) => (
-                  <li key={message._id}>
-                    <span>{message.author}:</span>
-                    <span>{message.body}</span>
-                    <span>{new Date(message._creationTime).toLocaleTimeString()}</span>
-                  </li>
-                ))}
-              </ul>
-              <form onSubmit={handleSendMessage}>
-                <input
-                  value={newMessageText}
-                  onChange={(event) => setNewMessageText(event.target.value)}
-                  placeholder="Write a message…"
-                />
-                <button type="submit" disabled={!newMessageText}>
-                  Send
-                </button>
-              </form>
-            </main>
+            <div className="container mx-auto p-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Convex Chat</CardTitle>
+                  <p className="text-muted-foreground">{name}</p>
+                </CardHeader>
+                <CardContent>
+                  <ul className="space-y-2 mb-4">
+                    {messages.map((message) => (
+                      <li key={message._id} className="flex gap-2">
+                        <span className="font-medium">{message.author}:</span>
+                        <span>{message.body}</span>
+                        <span className="text-muted-foreground text-sm">
+                          {new Date(message._creationTime).toLocaleTimeString()}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  <form onSubmit={handleSendMessage} className="flex gap-2">
+                    <Input
+                      value={newMessageText}
+                      onChange={(event) => setNewMessageText(event.target.value)}
+                      placeholder="Write a message…"
+                    />
+                    <Button type="submit" disabled={!newMessageText}>
+                      Send
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
+            </div>
           );
         }
         \`\`\`
 
-        The \`useQuery()\` hook is live-updating! It causes the React component is it used in to rerender, so Convex is a
-        perfect fix for collaborative, live-updating websites.
+        The \`useQuery()\` hook is live-updating! It causes the React component it is used in to rerender, so Convex is a
+        perfect fit for collaborative, live-updating websites.
+
+        IMPORTANT: In Vite + React, all components are client-side by default. No "use client" directive is needed.
 
         NEVER use \`useQuery()\` or other \`use\` hooks conditionally. The following example is invalid:
 
@@ -153,12 +175,13 @@ export function solutionConstraints(options: SystemPromptOptions) {
         );
         \`\`\`
 
-        If you want to use a UI element, you MUST create it. DO NOT use external libraries like Shadcn/UI.
+        ALWAYS use the pre-installed shadcn/ui components from \`@/components/ui/\` for UI elements. Available components include:
+        Button, Input, Card, Dialog, Sheet, Dropdown, Select, Checkbox, Switch, Tabs, Table, Form, and many more.
 
         When writing a UI component and you want to use a Convex function, you MUST import the \`api\` object. For example:
 
         \`\`\`tsx
-        import { api } from "../convex/_generated/api";
+        import { api } from "@/convex/_generated/api";
         \`\`\`
 
         You can use the \`api\` object to call any public Convex function.
@@ -183,8 +206,9 @@ function templateInfo() {
     the current working directory. Its dependencies are specified in the 'package.json' file and already
     installed in the 'node_modules' directory. You MUST use this template. This template uses the following
     technologies:
-    - Vite + React for the frontend
+    - Vite + React 18 for the frontend (fast development, simple SPA)
     - TailwindCSS for styling
+    - shadcn/ui components (core components pre-installed in src/components/ui/)
     - Convex for the database, functions, scheduling, HTTP handlers, and search.
     - Convex Auth for authentication.
 
@@ -192,6 +216,12 @@ function templateInfo() {
 
     <directory path="convex/">
       The 'convex/' directory contains the code deployed to the Convex backend.
+    </directory>
+
+    <directory path="src/components/ui/">
+      The 'src/components/ui/' directory contains pre-installed shadcn/ui components. Core components
+      include: button, input, label, card, sonner (toast). You can add more shadcn/ui components as needed
+      by creating new files following the shadcn/ui patterns.
     </directory>
 
     <file path="convex/auth.config.ts">
@@ -203,7 +233,7 @@ function templateInfo() {
       This code configures Convex Auth to use just a username/password login method. Do NOT modify this
       file. If the user asks to support other login methods, tell them that this isn't currently possible
       within Chef. They can download the code and do it themselves.
-      IMPORTANT: Do NOT modify the \`convex/auth.ts\`, \`src/SignInForm.tsx\`, or \`src/SignOutButton.tsx\` files under any circumstances. These files are locked, and
+      IMPORTANT: Do NOT modify the \`convex/auth.ts\` or \`src/components/auth/SignInForm.tsx\` files under any circumstances. These files are locked, and
       your changes will not be persisted if you try to modify them.
     </file>
 
@@ -222,21 +252,33 @@ function templateInfo() {
     </file>
 
     <file path="src/App.tsx">
-      This is the main React component for the app. It starts with a simple login form and a button to add a
-      random number to a list. It uses "src/SignInForm.tsx" and "src/SignOutButton.tsx" for the login and
-      logout functionality. Add new React components to their own files in the 'src' directory to avoid
-      cluttering the main file.
+      This is the main App component. It handles authentication state and renders the appropriate UI.
+      It uses Convex's Authenticated, Unauthenticated, and AuthLoading components for auth state management.
+      Add new React components to their own files in the 'src/components/' directory.
     </file>
 
     <file path="src/main.tsx">
-      This file is the entry point for the app and sets up the 'ConvexAuthProvider'.
-
+      This file is the entry point for the app and sets up the ConvexAuthProvider.
       IMPORTANT: Do NOT modify the \`src/main.tsx\` file under any circumstances.
     </file>
 
-    <file path="index.html">
-      This file is the entry point for Vite and includes the <head> and <body> tags.
-    </file>
+    <vite_react_guidelines>
+      - This is a Vite + React SPA (Single Page Application).
+      - All components are client-side React components (no "use client" directive needed).
+      - Use React Router for client-side routing if needed (install react-router-dom).
+      - For multiple pages, create a router in App.tsx or use a separate router file.
+      - Import Convex API as \`import { api } from "../convex/_generated/api";\` (relative path from src/).
+      - The @ alias points to src/, so you can use \`import { api } from "@/convex/_generated/api";\` won't work.
+        Instead use relative imports like \`import { api } from "../convex/_generated/api";\`
+    </vite_react_guidelines>
+
+    <shadcn_guidelines>
+      - Core shadcn/ui components are pre-installed in \`src/components/ui/\`.
+      - Import components like: \`import { Button } from "@/components/ui/button";\`
+      - Use the \`cn()\` utility from \`@/lib/utils\` for conditional class names.
+      - Components follow the new-york style variant.
+      - To add more shadcn/ui components, create new files in src/components/ui/ following the shadcn patterns.
+    </shadcn_guidelines>
   </template_info>
   `;
 }

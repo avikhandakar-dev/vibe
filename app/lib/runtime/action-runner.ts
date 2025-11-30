@@ -474,7 +474,7 @@ export class ActionRunner {
           // + typecheck
           //       |
           //       |
-          // app typecheck         `tsc --noEmit --project tsconfig.app.json
+          // app typecheck         `tsc --noEmit`
           //         \
           //          \
           //         deploy        `deploy` can fail
@@ -483,7 +483,7 @@ export class ActionRunner {
             // Convex codegen does a convex directory typecheck, then tsc does a full-project typecheck.
             let output = await run(['convex', 'codegen'], outputLabels.convexTypecheck, onOutput);
             output += await run(
-              ['tsc', '--noEmit', '-p', 'tsconfig.app.json'],
+              ['tsc', '--noEmit'],
               outputLabels.frontendTypecheck,
               onOutput,
             );
@@ -500,7 +500,7 @@ export class ActionRunner {
 
           // Start the default preview if it's not already running
           if (!workbenchStore.isDefaultPreviewRunning()) {
-            await this.#shellTerminal.startCommand('vite --open');
+            await this.#shellTerminal.startCommand('npm run dev');
             result += '\n\nDev server started successfully!';
           }
 

@@ -57,7 +57,7 @@ export async function chatAction({ request }: ActionFunctionArgs) {
     firstUserMessage: boolean;
     chatInitialId: string;
     token: string;
-    teamSlug: string;
+    teamSlug: string | undefined;
     deploymentName: string | undefined;
     modelProvider: ModelProvider;
     modelChoice: string | undefined;
@@ -79,6 +79,10 @@ export async function chatAction({ request }: ActionFunctionArgs) {
     body.modelProvider = 'Anthropic';
   }
 
+  // Check if this is an auto-provisioned project (token is a project admin key, not a user auth token)
+  // Project admin keys start with "prod:" or contain "|" (project deploy keys)
+  const isAutoProvisioned = token?.startsWith('prod:') || token?.includes('|') || !teamSlug;
+
   let useUserApiKey = false;
 
   // Use the user's API key if they're set to always mode or if they manually set a model.
@@ -95,7 +99,8 @@ export async function chatAction({ request }: ActionFunctionArgs) {
   }
 
   // If they're not set to always mode, check to see if the user has any Convex tokens left.
-  if (body.userApiKey?.preference !== 'always') {
+  // Skip token checking for auto-provisioned projects (they use your team's quota)
+  if (body.userApiKey?.preference !== 'always' && !isAutoProvisioned) {
     const resp = await checkTokenUsage(PROVISION_HOST, token, teamSlug, deploymentName);
     if (resp.status === 'error') {
       return new Response(JSON.stringify({ error: 'Failed to check for tokens' }), {
@@ -153,7 +158,8 @@ export async function chatAction({ request }: ActionFunctionArgs) {
     lastMessage: Message | undefined,
     finalGeneration: { usage: LanguageModelUsage; providerMetadata?: ProviderMetadata },
   ) => {
-    if (!userApiKey && getEnv('DISABLE_USAGE_REPORTING') !== '1') {
+    // Skip usage recording for auto-provisioned projects or when using user's API key
+    if (!userApiKey && !isAutoProvisioned && getEnv('DISABLE_USAGE_REPORTING') !== '1') {
       await recordUsage(
         PROVISION_HOST,
         token,

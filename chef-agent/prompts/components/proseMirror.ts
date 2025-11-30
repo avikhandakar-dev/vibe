@@ -172,7 +172,7 @@ to be in the component tree.
 ### BlockNote editor
 
 \`\`\`tsx
-// src/MyComponent.tsx
+// src/components/Editor.tsx
 import { useBlockNoteSync } from '@convex-dev/prosemirror-sync/blocknote';
 import '@blocknote/core/fonts/inter.css';
 import { BlockNoteView } from '@blocknote/mantine';
@@ -180,7 +180,7 @@ import '@blocknote/mantine/style.css';
 import { api } from '../convex/_generated/api';
 import { BlockNoteEditor } from '@blocknote/core';
 
-function MyComponent({ id }: { id: string }) {
+function Editor({ id }: { id: string }) {
   const sync = useBlockNoteSync<BlockNoteEditor>(api.example, id);
   return sync.isLoading ? (
     <p>Loading...</p>
@@ -191,8 +191,8 @@ function MyComponent({ id }: { id: string }) {
   );
 }
 
-export function MyComponentWrapper({ id }: { id: string }) {
-  return <MyComponent key={id} id={id} />;
+export function EditorWrapper({ id }: { id: string }) {
+  return <Editor key={id} id={id} />;
 }
 \`\`\`
 

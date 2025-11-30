@@ -36,13 +36,11 @@ const IGNORED_FILENAMES = [
   '.gitignore',
   'node_modules',
   'package-lock.json',
-  'tsconfig.node.json',
   'tailwind.config.js',
-  'tsconfig.app.json',
   'tsconfig.json',
   'components.json',
-  'vite.config.ts',
-  'vite-env.d.ts',
+  'next.config.ts',
+  'postcss.config.mjs',
 ];
 
 const TEMPLATE_DIR = '../template';

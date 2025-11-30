@@ -8,9 +8,11 @@ ${convexDeploymentName ? generateConvexDeploymentContent(convexDeploymentName) :
   
 ## Project structure
   
-The frontend code is in the \`app\` directory and is built with [Vite](https://vitejs.dev/).
+The frontend code is in the \`app\` directory and is built with [Next.js](https://nextjs.org/) using the App Router.
   
 The backend code is in the \`convex\` directory.
+
+The UI components are in the \`components\` directory, using [shadcn/ui](https://ui.shadcn.com/).
   
 \`npm run dev\` will start the frontend and backend servers.
 
