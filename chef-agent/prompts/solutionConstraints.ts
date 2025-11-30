@@ -206,7 +206,7 @@ function templateInfo() {
     the current working directory. Its dependencies are specified in the 'package.json' file and already
     installed in the 'node_modules' directory. You MUST use this template. This template uses the following
     technologies:
-    - Vite + React 18 for the frontend (fast development, simple SPA)
+    - Vite + React 19 for the frontend (fast development, simple SPA)
     - TailwindCSS for styling
     - shadcn/ui components (core components pre-installed in src/components/ui/)
     - Convex for the database, functions, scheduling, HTTP handlers, and search.
