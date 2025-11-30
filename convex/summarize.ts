@@ -22,6 +22,19 @@ export const firstMessage = internalAction({
   args: { chatMessageId: v.id("chatMessagesStorageState"), message: v.string() },
   handler: async (ctx, args) => {
     const { chatMessageId, message } = args;
+    
+    // Skip summarization if OpenAI API key is not configured
+    if (!process.env.OPENAI_API_KEY) {
+      console.warn("OPENAI_API_KEY not set in Convex environment, skipping summarization");
+      // Use first 50 chars of message as fallback summary
+      const fallbackSummary = message.slice(0, 50) + (message.length > 50 ? "..." : "");
+      await ctx.runMutation(internal.summarize.saveMessageSummary, {
+        chatMessageId,
+        summary: fallbackSummary,
+      });
+      return;
+    }
+    
     const openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
     });
