@@ -8,11 +8,15 @@ import type { Message } from '@ai-sdk/react';
 import type { PartCache } from '~/lib/hooks/useMessageParser';
 import { UserProvider } from '~/components/UserProvider';
 
+// Generate the initial chat ID once at module load time to avoid
+// issues with component remounting generating different UUIDs
+const moduleInitialId = crypto.randomUUID();
+
 export function Homepage() {
   // Set up a temporary chat ID early in app initialization. We'll
   // eventually replace this with a slug once we receive the first
   // artifact from the model if the user submits a prompt.
-  const initialId = useRef(crypto.randomUUID());
+  const initialId = useRef(moduleInitialId);
   setPageLoadChatId(initialId.current);
   // NB: On this path, we render `ChatImpl` immediately.
   return (
