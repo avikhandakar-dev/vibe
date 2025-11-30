@@ -27,7 +27,7 @@ const flagDefaults: {
   newChatFeature: false,
   minMessagesForNudge: 40,
   enableResend: false,
-  enableGpt5: false,
+  enableGpt5: true,
   useAnthropicFraction: 1.0,
 };
 

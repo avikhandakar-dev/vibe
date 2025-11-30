@@ -101,6 +101,10 @@ export const models: Partial<
     name: 'GPT-5',
     provider: 'openai',
   },
+  'gpt-5-nano': {
+    name: 'GPT-5-Nano',
+    provider: 'openai',
+  },
   'grok-3-mini': {
     name: 'Grok 3 Mini',
     provider: 'xai',
