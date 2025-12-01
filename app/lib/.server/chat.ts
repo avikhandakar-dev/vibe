@@ -17,6 +17,8 @@ const logger = createScopedLogger('api.chat');
 export type Tracer = ReturnType<typeof WebTracerProvider.prototype.getTracer>;
 
 export async function chatAction({ request }: ActionFunctionArgs) {
+  const openaiApiKey = getEnv('OPENAI_API_KEY');
+  
   const AXIOM_API_TOKEN = getEnv('AXIOM_API_TOKEN');
   const AXIOM_API_URL = getEnv('AXIOM_API_URL');
   const AXIOM_DATASET_NAME = getEnv('AXIOM_DATASET_NAME');
@@ -97,6 +99,11 @@ export async function chatAction({ request }: ActionFunctionArgs) {
   ) {
     useUserApiKey = true;
   }
+
+  console.log('openaiApiKey', openaiApiKey);
+  console.log(useUserApiKey, 'useUserApiKey');
+  
+  
 
   // If they're not set to always mode, check to see if the user has any Convex tokens left.
   // Skip token checking for auto-provisioned projects (they use your team's quota)
